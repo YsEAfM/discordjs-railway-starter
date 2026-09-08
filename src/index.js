@@ -21,6 +21,7 @@ if (!token) {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
@@ -111,6 +112,20 @@ client.on(Events.MessageCreate, async (message) => {
   if (text === "i gently open the door") {
     await message.reply("Sayori.chr deleted successfully.");
   }
+});
+
+// Welcome new members
+client.on(Events.GuildMemberAdd, async (member) => {
+  const channel = member.guild.channels.cache.get("1546838544285175891");
+
+  if (!channel || !channel.isTextBased()) {
+    console.error("Welcome channel not found or is not text-based.");
+    return;
+  }
+
+  await channel.send(
+    `Welcome to the LC on VM1, ${member.displayName}.chr`
+  );
 });
 
 client.login(token).catch((error) => {
