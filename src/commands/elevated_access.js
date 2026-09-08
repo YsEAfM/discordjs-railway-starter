@@ -1,7 +1,8 @@
 const {
   SlashCommandBuilder,
-  PermissionFlagsBits,
 } = require("discord.js");
+
+const ELEVATED_ACCESS_ROLE_ID = "1299934884378443821";
 
 function chr(name) {
   return name.toLowerCase().endsWith(".chr")
@@ -11,16 +12,14 @@ function chr(name) {
 
 async function getMember(interaction, optionName = "user") {
   const user = interaction.options.getUser(optionName);
-  if (!user) return null;
 
-  return interaction.guild.members.fetch(user.id).catch(() => null);
-}
+  if (!user) {
+    return null;
+  }
 
-function accessDenied() {
-  return {
-    content: "Error: elevated_access = false",
-    ephemeral: true,
-  };
+  return interaction.guild.members
+    .fetch(user.id)
+    .catch(() => null);
 }
 
 function operationFailed() {
@@ -35,7 +34,9 @@ module.exports = {
     .setName("elevated_access")
     .setDescription("Access character file management.")
 
-    // TYPE
+    // =========================================================
+    // OPERATION TYPE
+    // =========================================================
     .addStringOption((option) =>
       option
         .setName("type")
@@ -77,23 +78,29 @@ module.exports = {
         )
     )
 
-    // USER — used by ban, kick, timeout, untimeout, rename
+    // =========================================================
+    // TARGET USER
+    // =========================================================
     .addUserOption((option) =>
       option
         .setName("user")
-        .setDescription("Target Discord member.")
+        .setDescription("Target character file.")
         .setRequired(false)
     )
 
-    // USER ID — needed for unban because banned users aren't server members
+    // =========================================================
+    // USER ID — mainly for restoring banned users
+    // =========================================================
     .addStringOption((option) =>
       option
         .setName("user_id")
-        .setDescription("Discord user ID. Used for restoring a banned file.")
+        .setDescription("Discord user ID for deleted character files.")
         .setRequired(false)
     )
 
+    // =========================================================
     // REASON
+    // =========================================================
     .addStringOption((option) =>
       option
         .setName("reason")
@@ -101,36 +108,44 @@ module.exports = {
         .setRequired(false)
     )
 
+    // =========================================================
     // TIMEOUT LENGTH
+    // =========================================================
     .addIntegerOption((option) =>
       option
         .setName("minutes")
-        .setDescription("Communication restriction duration in minutes.")
+        .setDescription("Communication restriction duration.")
         .setMinValue(1)
         .setMaxValue(40320)
         .setRequired(false)
     )
 
+    // =========================================================
     // NEW NICKNAME
+    // =========================================================
     .addStringOption((option) =>
       option
         .setName("name")
-        .setDescription("New Discord nickname.")
+        .setDescription("New character file name.")
         .setMaxLength(32)
         .setRequired(false)
     )
 
+    // =========================================================
     // PURGE AMOUNT
+    // =========================================================
     .addIntegerOption((option) =>
       option
         .setName("amount")
-        .setDescription("Number of dialogue entries to delete.")
+        .setDescription("Number of dialogue entries to remove.")
         .setMinValue(1)
         .setMaxValue(100)
         .setRequired(false)
     )
 
+    // =========================================================
     // SLOWMODE
+    // =========================================================
     .addIntegerOption((option) =>
       option
         .setName("seconds")
@@ -141,6 +156,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    // =========================================================
+    // VM1 / SERVER CHECK
+    // =========================================================
     if (!interaction.inGuild()) {
       return interaction.reply({
         content: "Error: VM1 connection unavailable.",
@@ -148,23 +166,42 @@ module.exports = {
       });
     }
 
+    // =========================================================
+    // ELEVATED ACCESS CHECK
+    //
+    // IMPORTANT:
+    // We no longer check whether the USER has Ban Members,
+    // Kick Members, Manage Nicknames, etc.
+    //
+    // The only key is the Elevated Access role.
+    // The actual Discord operation is performed by Y'sEAƒM.
+    // =========================================================
+    const executor = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+
+    if (
+      !executor ||
+      !executor.roles.cache.has(ELEVATED_ACCESS_ROLE_ID)
+    ) {
+      return interaction.reply({
+        content: "Error: elevated_access = false",
+        ephemeral: true,
+      });
+    }
+
     const type = interaction.options.getString("type");
+
     const reason =
-      interaction.options.getString("reason") || "No reason provided.";
+      interaction.options.getString("reason") ||
+      "No reason provided.";
 
     try {
       // =========================================================
-      // DELETE CHARACTER FILE = BAN
+      // DELETE CHARACTER FILE
+      // REAL ACTION: BAN
       // =========================================================
       if (type === "delete_character_file") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.BanMembers
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
         const user = interaction.options.getUser("user");
 
         if (!user) {
@@ -182,26 +219,25 @@ module.exports = {
           return interaction.reply(operationFailed());
         }
 
-        await interaction.guild.members.ban(user.id, { reason });
+        await interaction.guild.members.ban(
+          user.id,
+          { reason }
+        );
 
         return interaction.reply(
-          `Deleting character file...\n${chr(user.username)} has been removed from the simulation.\n\nReason: ${reason}`
+          `Deleting character file...\n` +
+          `${chr(user.username)} has been removed from the simulation.\n\n` +
+          `Reason: ${reason}`
         );
       }
 
       // =========================================================
-      // RESTORE CHARACTER FILE = UNBAN
+      // RESTORE CHARACTER FILE
+      // REAL ACTION: UNBAN
       // =========================================================
       if (type === "restore_character_file") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.BanMembers
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
-        const userId = interaction.options.getString("user_id");
+        const userId =
+          interaction.options.getString("user_id");
 
         if (!userId) {
           return interaction.reply({
@@ -217,32 +253,28 @@ module.exports = {
 
         if (!ban) {
           return interaction.reply({
-            content: "Character file not found in deleted files.",
+            content:
+              "Character file not found in deleted files.",
             ephemeral: true,
           });
         }
 
-        await interaction.guild.bans.remove(userId, reason);
+        await interaction.guild.bans.remove(
+          userId,
+          reason
+        );
 
         return interaction.reply(
-          `Restoring character file...\n${chr(
-            ban.user.username
-          )} has been restored.`
+          `Restoring character file...\n` +
+          `${chr(ban.user.username)} has been restored.`
         );
       }
 
       // =========================================================
-      // DISCONNECT CHARACTER FILE = KICK
+      // DISCONNECT CHARACTER FILE
+      // REAL ACTION: KICK
       // =========================================================
       if (type === "disconnect_character_file") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.KickMembers
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
         const member = await getMember(interaction);
 
         if (!member) {
@@ -261,26 +293,21 @@ module.exports = {
         await member.kick(reason);
 
         return interaction.reply(
-          `Disconnecting ${chr(
-            username
-          )} from VM1...\nConnection terminated.\n\nReason: ${reason}`
+          `Disconnecting ${chr(username)} from VM1...\n` +
+          `Connection terminated.\n\n` +
+          `Reason: ${reason}`
         );
       }
 
       // =========================================================
-      // REVOKE COMMUNICATION = TIMEOUT
+      // REVOKE COMMUNICATION ACCESS
+      // REAL ACTION: TIMEOUT
       // =========================================================
       if (type === "revoke_communication_access") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.ModerateMembers
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
         const member = await getMember(interaction);
-        const minutes = interaction.options.getInteger("minutes");
+
+        const minutes =
+          interaction.options.getInteger("minutes");
 
         if (!member) {
           return interaction.reply({
@@ -291,7 +318,8 @@ module.exports = {
 
         if (!minutes) {
           return interaction.reply({
-            content: "Communication restriction duration required.",
+            content:
+              "Communication restriction duration required.",
             ephemeral: true,
           });
         }
@@ -300,27 +328,25 @@ module.exports = {
           return interaction.reply(operationFailed());
         }
 
-        await member.timeout(minutes * 60 * 1000, reason);
+        await member.timeout(
+          minutes * 60 * 1000,
+          reason
+        );
 
         return interaction.reply(
           `Communication access revoked for ${chr(
             member.user.username
-          )}.\nDuration: ${minutes} minute(s).\n\nReason: ${reason}`
+          )}.\n` +
+          `Duration: ${minutes} minute(s).\n\n` +
+          `Reason: ${reason}`
         );
       }
 
       // =========================================================
-      // RESTORE COMMUNICATION = REMOVE TIMEOUT
+      // RESTORE COMMUNICATION ACCESS
+      // REAL ACTION: REMOVE TIMEOUT
       // =========================================================
       if (type === "restore_communication_access") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.ModerateMembers
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
         const member = await getMember(interaction);
 
         if (!member) {
@@ -334,7 +360,10 @@ module.exports = {
           return interaction.reply(operationFailed());
         }
 
-        await member.timeout(null, reason);
+        await member.timeout(
+          null,
+          reason
+        );
 
         return interaction.reply(
           `Communication access restored for ${chr(
@@ -344,19 +373,14 @@ module.exports = {
       }
 
       // =========================================================
-      // MODIFY CHARACTER FILE = CHANGE NICKNAME
+      // MODIFY CHARACTER FILE
+      // REAL ACTION: CHANGE NICKNAME
       // =========================================================
       if (type === "modify_character_file") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.ManageNicknames
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
         const member = await getMember(interaction);
-        const newName = interaction.options.getString("name");
+
+        const newName =
+          interaction.options.getString("name");
 
         if (!member) {
           return interaction.reply({
@@ -367,7 +391,8 @@ module.exports = {
 
         if (!newName) {
           return interaction.reply({
-            content: "New character file property required.",
+            content:
+              "New character file property required.",
             ephemeral: true,
           });
         }
@@ -378,90 +403,90 @@ module.exports = {
 
         const oldName = member.displayName;
 
-        await member.setNickname(newName, reason);
+        await member.setNickname(
+          newName,
+          reason
+        );
 
-        // Fetch again so Y'sEAfM verifies Discord actually changed it.
-        const updated = await interaction.guild.members.fetch(member.id);
+        // Fetch member again to verify Discord really applied it.
+        const updated =
+          await interaction.guild.members.fetch(
+            member.id
+          );
 
         if (updated.nickname !== newName) {
           return interaction.reply({
             content:
-              "Character file modification failed.\nPermission failed to load.",
+              "Character file modification failed.\n" +
+              "Permission failed to load.",
             ephemeral: true,
           });
         }
 
         return interaction.reply(
-          `Modifying character file properties...\n${chr(
-            oldName
-          )} → ${chr(newName)}`
+          `Modifying character file properties...\n` +
+          `${chr(oldName)} → ${chr(newName)}`
         );
       }
 
       // =========================================================
-      // CLEAN DIALOGUE HISTORY = PURGE
+      // CLEAN DIALOGUE HISTORY
+      // REAL ACTION: PURGE MESSAGES
       // =========================================================
       if (type === "clean_dialogue_history") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.ManageMessages
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
-        const amount = interaction.options.getInteger("amount");
+        const amount =
+          interaction.options.getInteger("amount");
 
         if (!amount) {
           return interaction.reply({
-            content: "Dialogue entry count required.",
+            content:
+              "Dialogue entry count required.",
             ephemeral: true,
           });
         }
 
         if (
           !interaction.channel ||
-          typeof interaction.channel.bulkDelete !== "function"
+          typeof interaction.channel.bulkDelete !==
+            "function"
         ) {
           return interaction.reply(operationFailed());
         }
 
         await interaction.deferReply();
 
-        const deleted = await interaction.channel.bulkDelete(
-          amount,
-          true
-        );
+        const deleted =
+          await interaction.channel.bulkDelete(
+            amount,
+            true
+          );
 
         return interaction.editReply(
-          `Cleaning corrupted dialogue history...\n${deleted.size} entries removed.`
+          `Cleaning corrupted dialogue history...\n` +
+          `${deleted.size} entries removed.`
         );
       }
 
       // =========================================================
-      // LIMIT VM1 COMMUNICATION = SLOWMODE
+      // LIMIT VM1 COMMUNICATION
+      // REAL ACTION: SLOWMODE
       // =========================================================
       if (type === "limit_vm1_communication") {
-        if (
-          !interaction.memberPermissions.has(
-            PermissionFlagsBits.ManageChannels
-          )
-        ) {
-          return interaction.reply(accessDenied());
-        }
-
-        const seconds = interaction.options.getInteger("seconds");
+        const seconds =
+          interaction.options.getInteger("seconds");
 
         if (seconds === null) {
           return interaction.reply({
-            content: "VM1 communication rate required.",
+            content:
+              "VM1 communication rate required.",
             ephemeral: true,
           });
         }
 
         if (
           !interaction.channel ||
-          typeof interaction.channel.setRateLimitPerUser !== "function"
+          typeof interaction.channel
+            .setRateLimitPerUser !== "function"
         ) {
           return interaction.reply(operationFailed());
         }
@@ -482,19 +507,28 @@ module.exports = {
         );
       }
 
+      // =========================================================
+      // UNKNOWN OPERATION
+      // =========================================================
       return interaction.reply({
         content: "404 operation not found.",
         ephemeral: true,
       });
     } catch (error) {
-      console.error(`elevated_access/${type}:`, error);
+      console.error(
+        `elevated_access/${type}:`,
+        error
+      );
 
       const response = {
         content: "Permission failed to load.",
         ephemeral: true,
       };
 
-      if (interaction.deferred || interaction.replied) {
+      if (
+        interaction.deferred ||
+        interaction.replied
+      ) {
         return interaction.followUp(response);
       }
 
