@@ -48,13 +48,27 @@ for (const file of fs.readdirSync(commandsDir).filter((f) => f.endsWith(".js")))
   payload.push(command.data.toJSON());
 }
 
-// Ready + global slash-command registration
+// Ready + slash-command registration
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
 
   try {
     const rest = new REST({ version: "10" }).setToken(token);
 
+    // Remove old server-specific slash commands.
+    // This is mainly to kill the old Cloudflare-era /elevated_access.
+    for (const guild of c.guilds.cache.values()) {
+      await rest.put(
+        Routes.applicationGuildCommands(c.user.id, guild.id),
+        { body: [] }
+      );
+
+      console.log(
+        `Cleared old guild slash commands from: ${guild.name}`
+      );
+    }
+
+    // Register the current commands globally.
     await rest.put(
       Routes.applicationCommands(c.user.id),
       { body: payload }
