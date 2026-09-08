@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const ELEVATED_ACCESS_ROLE_ID = "1386047077963927622";
+const ELEVATED_ACCESS_ROLE_ID = "1546908874496413747";
 
 function chr(name) {
   return name.toLowerCase().endsWith(".chr")
