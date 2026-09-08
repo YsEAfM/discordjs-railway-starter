@@ -5,6 +5,7 @@ const {
   Collection,
   Events,
   GatewayIntentBits,
+  Partials,
   REST,
   Routes,
 } = require("discord.js");
@@ -12,9 +13,7 @@ const {
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
-  console.error(
-    "DISCORD_TOKEN is not set. Add it as a service variable in Railway."
-  );
+  console.error("DISCORD_TOKEN is not set.");
   process.exit(1);
 }
 
@@ -23,7 +22,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
+  ],
+  partials: [
+    Partials.Channel,
   ],
 });
 
@@ -45,7 +48,7 @@ for (const file of fs.readdirSync(commandsDir).filter((f) => f.endsWith(".js")))
   payload.push(command.data.toJSON());
 }
 
-// Bot ready + slash command registration
+// Ready + global slash-command registration
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
 
@@ -62,8 +65,6 @@ client.once(Events.ClientReady, async (c) => {
         .map((cmd) => `/${cmd.name}`)
         .join(", ")}`
     );
-
-    console.log("Global commands can take a few minutes to appear in Discord.");
   } catch (error) {
     console.error("Failed to register slash commands:", error);
   }
@@ -94,7 +95,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
-// Normal message triggers
+// Normal messages — servers + DMs
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
 
@@ -114,9 +115,11 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-// Welcome new members
+// Welcome new server members
 client.on(Events.GuildMemberAdd, async (member) => {
-  const channel = member.guild.channels.cache.get("1546838544285175891");
+  const channel = member.guild.channels.cache.get(
+    "1546838544285175891"
+  );
 
   if (!channel || !channel.isTextBased()) {
     console.error("Welcome channel not found or is not text-based.");
