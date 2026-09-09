@@ -10,6 +10,8 @@ const {
   Routes,
 } = require("discord.js");
 
+const { startBirthdaySystem } = require("./birthday");
+
 const token = process.env.DISCORD_TOKEN;
 
 if (!token) {
@@ -56,7 +58,6 @@ client.once(Events.ClientReady, async (c) => {
     const rest = new REST({ version: "10" }).setToken(token);
 
     // Remove old server-specific slash commands.
-    // This is mainly to kill the old Cloudflare-era /elevated_access.
     for (const guild of c.guilds.cache.values()) {
       await rest.put(
         Routes.applicationGuildCommands(c.user.id, guild.id),
@@ -68,7 +69,7 @@ client.once(Events.ClientReady, async (c) => {
       );
     }
 
-    // Register the current commands globally.
+    // Register current commands globally.
     await rest.put(
       Routes.applicationCommands(c.user.id),
       { body: payload }
@@ -82,6 +83,9 @@ client.once(Events.ClientReady, async (c) => {
   } catch (error) {
     console.error("Failed to register slash commands:", error);
   }
+
+  // Start automatic birthday checks.
+  startBirthdaySystem(c);
 });
 
 // Slash commands
