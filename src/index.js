@@ -8,9 +8,8 @@ const {
   Partials,
   REST,
   Routes,
+  MessageFlags,
 } = require("discord.js");
-
-const { startBirthdaySystem } = require("./birthday");
 
 const token = process.env.DISCORD_TOKEN;
 
@@ -58,6 +57,7 @@ client.once(Events.ClientReady, async (c) => {
     const rest = new REST({ version: "10" }).setToken(token);
 
     // Remove old server-specific slash commands.
+    // This removes leftovers from the old Cloudflare setup.
     for (const guild of c.guilds.cache.values()) {
       await rest.put(
         Routes.applicationGuildCommands(c.user.id, guild.id),
@@ -83,9 +83,6 @@ client.once(Events.ClientReady, async (c) => {
   } catch (error) {
     console.error("Failed to register slash commands:", error);
   }
-
-  // Start automatic birthday checks.
-  startBirthdaySystem(c);
 });
 
 // Slash commands
@@ -102,7 +99,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const response = {
       content: "There was an error while executing this command.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     };
 
     if (interaction.replied || interaction.deferred) {
@@ -119,17 +116,66 @@ client.on(Events.MessageCreate, async (message) => {
 
   const text = message.content.trim().toLowerCase();
 
+  // DDLC — Happy Thoughts
   if (text === "happy thoughts") {
+    const imagePath = path.join(
+      __dirname,
+      "..",
+      "IMG_5130.jpeg"
+    );
+
+    if (!fs.existsSync(imagePath)) {
+      console.error(`Happy Thoughts image not found: ${imagePath}`);
+      return;
+    }
+
     await message.channel.send({
       files: [
-        "https://cdn.discordapp.com/attachments/1546824395081777203/1546824428816695307/IMG_5130.jpg?ex=6aa13002&is=6a9fde82&hm=b746c191bcda77959f2ec654e31a0c670b50ec2edb5b7667f999c073fad4b245&"
+        {
+          attachment: imagePath,
+          name: "IMG_5130.jpeg",
+        },
       ],
     });
+
     return;
   }
 
+  // DDLC — I gently open the door
   if (text === "i gently open the door") {
-    await message.reply("Sayori.chr deleted successfully.");
+    const tracebackPath = path.join(
+      __dirname,
+      "assets",
+      "traceback.txt"
+    );
+
+    if (!fs.existsSync(tracebackPath)) {
+      console.error(`Traceback file not found: ${tracebackPath}`);
+
+      await message.reply(
+        "View traceback for details.\n\nTraceback file failed to load."
+      );
+
+      return;
+    }
+
+    // First response: traceback
+    await message.reply({
+      content: "View traceback for details.",
+      files: [
+        {
+          attachment: tracebackPath,
+          name: "traceback.txt",
+        },
+      ],
+    });
+
+    // Second response
+    await message.channel.send(
+      "Sayori.chr deleted successfully."
+    );
+
+    return;
   }
 });
 
@@ -140,7 +186,9 @@ client.on(Events.GuildMemberAdd, async (member) => {
   );
 
   if (!channel || !channel.isTextBased()) {
-    console.error("Welcome channel not found or is not text-based.");
+    console.error(
+      "Welcome channel not found or is not text-based."
+    );
     return;
   }
 
