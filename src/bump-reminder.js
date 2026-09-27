@@ -70,8 +70,8 @@ function createBumpCheck(client, { roleIds = DEFAULT_ROLE_IDS, now = Date.now } 
         allowedMentions: { parse: [], roles: roleIds },
         embeds: [{
           color: 0x58b9ae,
-          title: "Čas na bump",
-          description: "Od posledního úspěšného bumpu uplynuly 2 hodiny. Kdo má chvilku, může zde spustit **/bump** od DISBOARDu. Díky!",
+          title: "Time to bump!",
+          description: "It has been 2 hours since the last successful bump. If you have a moment, please run DISBOARD's **/bump** command in this channel. Thank you!",
           footer: { text: `${MARKER}${latest.message.id}` },
         }],
         // Discord deduplicates recent sends, including ambiguous network retries.
