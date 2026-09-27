@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { startBumpReminders } = require("./bump-reminder");
 const {
   Client,
   Collection,
@@ -52,6 +53,12 @@ for (const file of fs.readdirSync(commandsDir).filter((f) => f.endsWith(".js")))
 // Ready + slash-command registration
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
+
+  try {
+    startBumpReminders(c);
+  } catch (error) {
+    console.error("Failed to start bump reminders:", error);
+  }
 
   try {
     const rest = new REST({ version: "10" }).setToken(token);

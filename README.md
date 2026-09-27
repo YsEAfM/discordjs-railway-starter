@@ -72,6 +72,41 @@ DISCORD_TOKEN=your-token npm start
 |----------|----------|---------|
 | `DISCORD_TOKEN` | yes | Bot token from the Developer Portal |
 
+## DISBOARD bump reminders
+
+Y'sEAfM checks channel `1553708050068537354` once per minute. After a
+confirmed DISBOARD bump, it waits two hours plus five seconds and sends one
+Czech reminder. Members still run DISBOARD's `/bump` manually. Failed bump
+attempts and messages from other users or bots do not reset the cooldown.
+
+By default reminders mention the three requested roles: `1546777627136761957`,
+`1546777509050191902`, and `1546908874496413747`. Optional Railway variable
+`BUMP_ROLE_IDS` overrides this list with comma-separated role IDs; an empty
+value disables mentions. The roles must be mentionable or the bot must have
+permission to mention them. No other roles or users are pinged.
+
+The bot needs View Channel, Read Message History, Send Messages and Embed Links
+in that channel, and Message Content Intent enabled in the Discord Developer
+Portal (already requested by the client). Run one Railway replica.
+
+The latest success and reminder are recovered from channel history on every
+check, including after redeployment; no Railway volume or database is needed.
+Keep DISBOARD confirmations and reminder messages in the channel. Removing them
+can lose a timer or cause another reminder. Up to 2000 recent messages are
+searched; if no success is found, the bot waits for a new manual successful bump.
+Network or permission errors are logged and retried on the next minute.
+
+Success detection accepts DISBOARD's `disboard.org/images/bump.png` image or
+the English `Bump done!` embed text. If DISBOARD changes its response format,
+update the detector against an actual successful response. There is no reminder
+until a visible successful bump is found, and no repeated nags while waiting
+for someone to bump again.
+
+Validation: `npm test`. After deployment, manually perform a successful bump
+in the configured channel and confirm one reminder arrives after roughly
+2 hours 5 seconds to 2 hours 65 seconds. Live Discord delivery requires a
+separate check; unit tests use simulated Discord messages.
+
 ## License
 
 MIT
