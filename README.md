@@ -76,7 +76,7 @@ DISCORD_TOKEN=your-token npm start
 
 Y'sEAfM checks channel `1553708050068537354` once per minute. After a
 confirmed DISBOARD bump, it waits two hours plus five seconds and sends one
-Czech reminder. Members still run DISBOARD's `/bump` manually. Failed bump
+English reminder. Members still run DISBOARD's `/bump` manually. Failed bump
 attempts and messages from other users or bots do not reset the cooldown.
 
 By default reminders mention the three requested roles: `1546777627136761957`,
